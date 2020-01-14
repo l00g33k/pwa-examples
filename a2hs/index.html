@@ -6,9 +6,67 @@
     <link href="style.css" rel="stylesheet">
     <script src="index.js" defer></script>
     <link rel="manifest" href="manifest.webmanifest">
+	<script>
+	var ws;
+//	var ipaddr = '192.168.97.113'
+	var ipaddr = '127.0.0.1:11380'
+
+
+	window.onload = function wsinit() {
+		if ('WebSocket' in window || 'MozWebSocket' in window) {
+			ws = new WebSocket('ws://' + ipaddr + '/ws/controller');
+			ws.onopen = function() {
+				alert ("Websocket is open");
+				document.getElementById('p_banner').style.color = "white";
+				document.getElementById('btn_get').removeAttribute('disabled');
+				document.getElementById('btn_set').removeAttribute('disabled');
+			}
+
+			ws.onerror= function(evt) {
+				alert ("Websocket error");
+			}
+
+			ws.onclose = function() {
+				alert ("Websocket is closed");
+				document.getElementById('btn_get').setAttribute('disabled', 'disabled');
+				document.getElementById('btn_set').setAttribute('disabled', 'disabled');
+			}
+
+			ws.onmessage = function (evt) {
+				alert (evt.data);
+			}
+		}
+		else {
+			alert("Your browser does not support websockets");
+		}
+	}
+
+	function setMSO(vol, inp, upmx, ntmod) {
+		var cmd ='changemso ' + JSON.stringify([
+			{"op":"replace", "path":"/volume", "value":vol},
+			{"op":"replace", "path":"/input", "value":inp},
+			{"op":"replace", "path":"/upmix/select", "value": upmx},
+			{"op":"replace", "path":"/night", "value": ntmod}
+			]);
+		console.log (cmd); // for debug
+		ws.send(cmd);
+	}
+	
+	function getMSO() {
+		var cmd = 'getmso';
+		console.log (cmd); // for debug
+		ws.send(cmd);
+	}
+
+	</script>
   </head>
   <body>
+<!--
     <img src="images/fox1.jpg" alt="a fox picture">
     <button class="add-button">Add to home screen</button>
+-->
+	<p id="p_banner">Waiting for websocket to open</p>
+	<button type="button" id="btn_get" disabled onclick="javascript:getMSO()">Get MSO</button>
+	<button type="button" id="btn_set" disabled onclick="javascript:setMSO(-40, 'h1', 'native', 'on')">Send MSO</button>
   </body>
 </html>
