@@ -3,9 +3,13 @@
   <head>
     <meta charset="utf-8">
     <title>A2HS demo</title>
+<!--
     <link href="style.css" rel="stylesheet">
+-->
     <script src="index.js" defer></script>
     <link rel="manifest" href="manifest.webmanifest">
+    <script src = "https://ajax.googleapis.com/ajax/libs/angularjs/1.3.14/angular.min.js">
+    </script>
 	<script>
 	var ws;
 //	var ipaddr = '192.168.97.113'
@@ -61,12 +65,13 @@
 	</script>
   </head>
   <body>
-<!--
-    <img src="images/fox1.jpg" alt="a fox picture">
-    <button class="add-button">Add to home screen</button>
--->
+      <div ng-app = "">
 	<p id="p_banner">Waiting for websocket to open</p>
 	<button type="button" id="btn_get" disabled onclick="javascript:getMSO()">Get MSO</button>
 	<button type="button" id="btn_set" disabled onclick="javascript:setMSO(-40, 'h1', 'native', 'on')">Send MSO</button>
+         <p>Enter your Name: <input type = "text" ng-model = "name"></p>
+         <p>Hello <span ng-bind = "name"></span>!</p>
+Using doube curly brackets: {{name}}
+      </div>
   </body>
 </html>
