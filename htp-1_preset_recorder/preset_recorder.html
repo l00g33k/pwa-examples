@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>HTP-1 Macro Recorder</title>
+<!--
+    <link href="style.css" rel="stylesheet">
+    <script src="index.js" defer></script>
+-->
+    <link rel="manifest" href="manifest.webmanifest">
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.3.14/angular.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+
+	<script>
+	var ws;
+	var ipaddr = '192.168.1.100:80'
+    var recordings = [];
+
+
+//	window.onload = function wsinit() {
+	function wsInit() {
+        // Get HTP-1 IP address from the user
+		ipaddr = $(usr_ipaddr).val();
+        console.log ('ipaddr:', ipaddr);
+
+		if ('WebSocket' in window || 'MozWebSocket' in window) {
+			ws = new WebSocket('ws://' + ipaddr + '/ws/controller');
+			ws.onopen = function() {
+                $(p_banner).html("Websocket connected to HTP-1 at "+ipaddr+" at "+new Date());
+			}
+
+			ws.onerror= function(evt) {
+				alert ("Websocket error");
+                $(p_banner).html("Websocket ERROR connecting to HTP-1 at "+ipaddr+" at "+new Date());
+			}
+
+			ws.onclose = function() {
+				alert ("Websocket is closed");
+                $(p_banner).html("Websocket disconnected to HTP-1 at "+ipaddr+" at "+new Date());
+			}
+
+			ws.onmessage = function (evt) {
+				console.log (evt.data);
+                if(evt.data.search(/^msoupdate \[/) >= 0) {
+                    // an msoupdate verb: drop the verb
+                    var json = evt.data.replace(/^.*?\[/, '[');
+                    console.log('evt.data: ', json);
+                    // to ignore non operative branches?
+                    if (json.search(/"path" *: *"\/(status|videostat|stat|svronly|versions|ipInfo|hostip|bluetooth)/) < 0) {
+                        // no, these are operative branches, record them
+                        // parse JSON and record them
+                        var updates = JSON.parse(json);
+                        updates.forEach(el => { recordings.push(el); });
+
+                        // generate an output of current recordings
+                        var html = '';
+                        recordings.forEach(el => { html = html + JSON.stringify(el) + "\n"; });
+                        $(data).html(html);
+                    }
+                    else {
+                        // non operative branches being ignored
+                        var html = '';
+                        recordings.forEach(el => { html = html + JSON.stringify(el) + "\n"; });
+                        html = html + "        Ignore: " + json;
+                        // $(data).html(html);
+                    }
+                } else if (evt.data.search(/^mso {/) >= 0) {
+                    // just received an MSO
+                    var json = evt.data.replace(/^.*? {/, '{');
+                    console.log('evt.data: ', json);
+                    var mso = JSON.parse(json);
+
+                    var html = '';
+                    var array;
+
+                    // display the current CMD A/B/C/D and PRESET 1/2/3/4 content
+                    array = mso.svronly.cmda;
+                    html = html + "\nCMD A:\n";
+                    array.forEach(el => { html = html + '   ' + JSON.stringify(el) + "\n"; });
+
+                    array = mso.svronly.cmdb;
+                    html = html + "\nCMD B:\n";
+                    array.forEach(el => { html = html + '   ' + JSON.stringify(el) + "\n"; });
+
+                    array = mso.svronly.cmdc;
+                    html = html + "\nCMD C:\n";
+                    array.forEach(el => { html = html + '   ' + JSON.stringify(el) + "\n"; });
+
+                    array = mso.svronly.cmdd;
+                    html = html + "\nCMD D:\n";
+                    array.forEach(el => { html = html + '   ' + JSON.stringify(el) + "\n"; });
+
+                    array = mso.svronly.preset1;
+                    html = html + "\nPRESET 1:\n";
+                    array.forEach(el => { html = html + '   ' + JSON.stringify(el) + "\n"; });
+
+                    array = mso.svronly.preset2;
+                    html = html + "\nPRESET 2:\n";
+                    array.forEach(el => { html = html + '   ' + JSON.stringify(el) + "\n"; });
+
+                    array = mso.svronly.preset3;
+                    html = html + "\nPRESET 3:\n";
+                    array.forEach(el => { html = html + '   ' + JSON.stringify(el) + "\n"; });
+
+                    array = mso.svronly.preset4;
+                    html = html + "\nPRESET 4:\n";
+                    array.forEach(el => { html = html + '   ' + JSON.stringify(el) + "\n"; });
+
+                    $(data).html(html);
+                } else {
+                    document.getElementById('data').innerHTML = evt.data;
+                }
+			}
+		}
+		else {
+			alert("Your browser does not support websockets");
+		}
+	}
+
+    // clear recordings
+	function clrrec() {
+		recordings = [];
+        $(data).html('');
+	}
+
+    // erase last entry
+	function eraselast() {
+        recordings.pop();
+        var html = '';
+        recordings.forEach(el => { html = html + JSON.stringify(el) + "\n"; });
+        //document.getElementById('data').innerHTML = html;
+        $(data).html(html);
+	}
+
+    // send recordings to CMD A/B/C/D and PRESET 1/2/3/4
+
+	function send2cmda() {
+		var cmd ='changemso ' + JSON.stringify([
+			{"op":"replace", "path":"/svronly/cmda", "value": recordings }
+			]);
+		ws.send(cmd);
+        $(data).html("Sent to CMD A:<br>");
+	}
+
+	function send2cmdb() {
+		var cmd ='changemso ' + JSON.stringify([
+			{"op":"replace", "path":"/svronly/cmdb", "value": recordings }
+			]);
+		ws.send(cmd);
+        $(data).html("Sent to CMD B:<br>");
+	}
+
+	function send2cmdc() {
+		var cmd ='changemso ' + JSON.stringify([
+			{"op":"replace", "path":"/svronly/cmdc", "value": recordings }
+			]);
+		ws.send(cmd);
+        $(data).html("Sent to CMD C:<br>");
+	}
+
+	function send2cmdd() {
+		var cmd ='changemso ' + JSON.stringify([
+			{"op":"replace", "path":"/svronly/cmdd", "value": recordings }
+			]);
+		ws.send(cmd);
+        $(data).html("Sent to CMD D:<br>");
+	}
+
+	function send2preset1() {
+		var cmd ='changemso ' + JSON.stringify([
+			{"op":"replace", "path":"/svronly/preset1", "value": recordings }
+			]);
+		ws.send(cmd);
+        $(data).html("Sent to PRESET 1:<br>");
+	}
+
+	function send2preset2() {
+		var cmd ='changemso ' + JSON.stringify([
+			{"op":"replace", "path":"/svronly/preset2", "value": recordings }
+			]);
+		ws.send(cmd);
+        $(data).html("Sent to PRESET 2:<br>");
+	}
+
+	function send2preset3() {
+		var cmd ='changemso ' + JSON.stringify([
+			{"op":"replace", "path":"/svronly/preset3", "value": recordings }
+			]);
+		ws.send(cmd);
+        $(data).html("Sent to PRESET 3:<br>");
+	}
+
+	function send2preset4() {
+		var cmd ='changemso ' + JSON.stringify([
+			{"op":"replace", "path":"/svronly/preset4", "value": recordings }
+			]);
+		ws.send(cmd);
+        $(data).html("Sent to PRESET 4:<br>");
+	}
+
+	function showunit() {
+		var cmd = 'getmso';
+		console.log (cmd); // for debug
+		ws.send(cmd);
+	}
+
+	</script>
+  </head>
+  <body>
+    <div ng-app = "">
+        <p>This is a trivial macro recorder for the Monoprice HTP-1 Processor.
+            An undocumented feature allows an array of commands to be triggered 
+            by pushing the CMD A/B/C/D or the PRESET 1/2/3/4 buttons on the IR 
+            remote controller.
+            </p>
+        <p>
+            This Javascript application embedded in an HTML file allows you to record 
+            your actions and push to the CMD A/B/C/D and PRESET 1/2/3/4 buttons.
+            There is no known risk of permanent harm to your HTP-1 but the standard 
+            disclaimers apply and you are using it at your own risk.
+            </p>
+        <p>
+            Procesures:
+            </p>
+        <ol>
+            <li>Enter the IP address of your HTP-1 below and click 'Connect'.  An alert should say "Websocket is open"</li>
+            <li>Click 'Clear Recordings' to clear the recordings</li>
+            <li>Start issue the desired HTP-1 commands, using either the web GUI or the IR remote</li>
+            <li>Watch the list below.  If there are undesirable entry, click the 'Erase Last Entry' to erase it</li>
+            <li>When you are done, click one of the 'Save as' buttons to save</li>
+            <li>You can examine the current macros by clicking 'Show HTP-1 CMDs and PRESETs'</li>
+        </ol>
+
+        <label for="usr_ipaddr">Enter the IP address of HTP-1:</label>
+        <input type="text" id="usr_ipaddr" minlength="7" maxlength="15" size="15" value="192.168.1.26" accesskey="p">
+        <br>
+        <button type="button" id="btn_ip" onclick="javascript:wsInit()" accesskey="c">Connect</button>
+        <p id="p_status">&nbsp;</p>
+
+        <p id="p_banner">Waiting for websocket to open</p>
+        <button type="button" id="btn_clr" onclick="javascript:clrrec()">Clear Recordings</button>
+        <button type="button" id="btn_bksp" onclick="javascript:eraselast()">Erase Last Entry</button>
+        <button type="button" id="btn_show" onclick="javascript:showunit()">Show HTP-1 CMDs and PRESETs</button>
+        <br>
+        <br>
+        <button type="button" id="btn_cmda" onclick="javascript:send2cmda()">Save as CMD A</button>
+        <button type="button" id="btn_cmdb" onclick="javascript:send2cmdb()">Save as CMD A</button>
+        <button type="button" id="btn_cmdc" onclick="javascript:send2cmdc()">Save as CMD A</button>
+        <button type="button" id="btn_cmdd" onclick="javascript:send2cmdd()">Save as CMD A</button>
+        <br>
+        <br>
+        <button type="button" id="btn_preset1" onclick="javascript:send2preset1()">Save as PRESET 1</button>
+        <button type="button" id="btn_preset2" onclick="javascript:send2preset2()">Save as PRESET 2</button>
+        <button type="button" id="btn_preset3" onclick="javascript:send2preset3()">Save as PRESET 3</button>
+        <button type="button" id="btn_preset4" onclick="javascript:send2preset4()">Save as PRESET 4</button>
+        <pre id="data">(no data)</pre>
+    </div>
+
+  </body>
+</html>
